@@ -197,6 +197,7 @@ export default function register(api: OpenClawPluginApi) {
           }
 
           case "settings": {
+            await ensureInitialized();
             const options = params.options as Record<string, unknown> | undefined;
             if (!options || Object.keys(options).length === 0) {
               return text(
@@ -286,6 +287,16 @@ export default function register(api: OpenClawPluginApi) {
               options: { captureMode: "video", _videoType: videoType },
             });
             const result = await c.execute("camera.startCapture");
+            if (!monitor?.isRunning) {
+              monitor = new RecordingMonitor({
+                client: c,
+                onAlert: (msg) => api.logger.warn(`[insta360] ${msg}`),
+                lowBatteryThreshold: cfg.lowBatteryThreshold,
+                lowStorageMB: cfg.lowStorageMB,
+                pollIntervalMs: cfg.pollIntervalMs,
+              });
+              monitor.start("recording");
+            }
             return {
               text: `Recording started (${videoType}).\n${JSON.stringify(result, null, 2)}`,
             };

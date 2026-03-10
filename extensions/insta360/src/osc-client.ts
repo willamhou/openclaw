@@ -98,7 +98,11 @@ export class OscClient {
     try {
       return await attempt();
     } catch (err) {
-      const code = (err as NodeJS.ErrnoException).code;
+      // Node/undici fetch surfaces network errors as TypeError("fetch failed")
+      // with the errno on err.cause.code (e.g. ECONNREFUSED)
+      const code =
+        (err as NodeJS.ErrnoException).code ??
+        (err as { cause?: NodeJS.ErrnoException }).cause?.code;
       if (code && TRANSIENT_CODES.has(code)) {
         await delay(1000);
         return attempt();

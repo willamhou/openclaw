@@ -255,6 +255,27 @@ describe("OscClient", () => {
       expect(result).toEqual({ model: "X4" });
     });
 
+    it("retries on TypeError with cause.code (undici/fetch pattern)", async () => {
+      vi.useRealTimers();
+      let callCount = 0;
+      const fetchMock = vi.fn().mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          const cause = new Error("connect ECONNREFUSED");
+          (cause as NodeJS.ErrnoException).code = "ECONNREFUSED";
+          return Promise.reject(new TypeError("fetch failed", { cause }));
+        }
+        return Promise.resolve(makeOkResponse({ model: "X4" }));
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      const client = new OscClient(BASE_URL);
+      const result = await client.getInfo();
+
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(result).toEqual({ model: "X4" });
+    });
+
     it("does not retry on non-transient errors", async () => {
       vi.useRealTimers();
       const fetchMock = vi.fn().mockRejectedValue(new Error("Auth failed"));
